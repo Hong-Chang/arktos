@@ -19,10 +19,11 @@ export NUM_REPLICAS=${KUBEMARK_NUM_NODES}
 export NUM_WINDOWS_NODES=0
 export AWS_SSH_KEY=$HOME/.ssh/id_rsa
 
-export PRESET_INSTANCES_ENABLED=false
+export PRESET_INSTANCES_ENABLED=true
 export IS_PRESET_INSTANCES_DRY_RUN=false  # In Preset instance, if it's dry run, then it only generates script but does not deploy. 
-export PRESET_KUBE_MASTER_IP=172.31.6.63
-export PRESET_KUBE_MINION1_IP=172.31.11.206
+export PRESET_KUBE_MASTER_IP=172.31.9.248
+export PRESET_KUBE_MINION1_IP=172.31.0.18
+export PRESET_KUBE_APISERVER_EXTRA1_IP=35.166.196.114
 # Uncomment next line and set minion2 ip to enable deploy 2-nodes cluster
 # export PRESET_KUBE_MINION2_IP=172.31.11.XXX
 

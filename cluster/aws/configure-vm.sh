@@ -20,7 +20,7 @@ set -o pipefail
 
 KUBE_VER=""
 KUBEMARK_MASTER=${KUBEMARK_MASTER:-false}
-
+IS_KUBE_APISERVER_EXTRA="${IS_KUBE_APISERVER_EXTRA:-false}"
 
 # Note that this script is also used by AWS; we include it and then override
 # functions with AWS equivalents.  Note `#+AWS_OVERRIDES_HERE` below.
@@ -766,6 +766,74 @@ function setup-kubernetes-master() {
   fi
 }
 
+function setup-kubernetes-apiserver-extra() {  
+  setup-kubelet
+
+  if [[ -z "$KUBERNETES_MASTER_NAME" ]]; then
+    KUBE_NODE_NAME=`hostname`
+  else
+    KUBE_NODE_NAME=$KUBERNETES_MASTER_NAME
+  fi
+
+  echo "Setting up extra kubernetes apiserver: Version $KUBE_VER IP: $KUBE_APISERVER_EXTRA1_IP Master IP: $MASTER_EXTERNAL_IP"
+
+  local init_phases="control-plane,etcd"
+  local skip_phases="--skip-phases=${init_phases}"
+  if [[ ${NETWORK_PROVIDER:-flannel} == "bridge" ]]; then
+    skip_phases="--skip-phases=${init_phases},addon"
+  fi
+  local feature_gates=""
+  if [[ ! -z ${FEATURE_GATES:-""} ]]; then
+    feature_gates="feature-gates=${FEATURE_GATES}"
+  fi
+  local pod_net_cidr=""
+  if [[ ! -z ${POD_NETWORK_CIDR} ]]; then
+    pod_net_cidr="--pod-network-cidr=$POD_NETWORK_CIDR"
+  fi
+
+  kubeadm init phase control-plane apiserver --apiserver-bind-port=$API_BIND_PORT --kubernetes-version=$KUBE_VER --apiserver-extra-args=$feature_gates
+  #kubeadm init phase control-plane controller-manager --kubernetes-version=$KUBE_VER $pod_net_cidr --controller-manager-extra-args=$feature_gates
+  #kubeadm init phase control-plane scheduler --kubernetes-version=$KUBE_VER --scheduler-extra-args=$feature_gates
+  kubeadm init phase etcd local
+
+  sed -i "/listen-client-urls=/ s/$/,http:\/\/127.0.0.1:2382/" /etc/kubernetes/manifests/etcd.yaml
+  sed -i "/- kube-apiserver/a \ \ \ \ - --token-auth-file=\/etc\/srv\/kubernetes\/known_tokens.csv" /etc/kubernetes/manifests/kube-apiserver.yaml
+  sed -i "/- kube-apiserver/a \ \ \ \ - --basic-auth-file=\/etc\/srv\/kubernetes\/basic_auth.csv" /etc/kubernetes/manifests/kube-apiserver.yaml
+  sed -i "/volumeMounts:/a \ \ \ \ - mountPath: \/etc\/srv\/kubernetes\n      name: etc-srv-kubernetes\n      readOnly: true" /etc/kubernetes/manifests/kube-apiserver.yaml
+  sed -i "/volumes:/a \ \ - hostPath:\n      path: \/etc\/srv\/kubernetes\n      type: DirectoryOrCreate\n    name: etc-srv-kubernetes" /etc/kubernetes/manifests/kube-apiserver.yaml
+
+  #cp /tmp/apiserver1/kube-apiserver.yaml /etc/kubernetes/manifests/kube-apiserver.yaml
+
+  if [[ ! -z $feature_gates ]]; then
+    sed -i "/KUBELET_CONFIG_ARGS=/a Environment=\"KUBELET_EXTRA_ARGS=--feature-gates=${FEATURE_GATES}\"" /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+    feature_gates="--$feature_gates"
+  fi
+  systemctl daemon-reload
+
+  echo $KUBE_NODE_NAME
+  echo $API_BIND_PORT
+  echo $MASTER_EXTERNAL_IP
+  echo $skip_phases
+  echo $pod_net_cidr
+  #exit 1
+  kubeadm init --node-name=$KUBE_NODE_NAME --apiserver-bind-port=$API_BIND_PORT --apiserver-cert-extra-sans=$MASTER_EXTERNAL_IP \
+               --ignore-preflight-errors=all $skip_phases $pod_net_cidr &> /etc/kubernetes/kubeadm-init-log
+  if [ $? -eq 0 ]; then
+    echo "kubeadm init successful."
+    sudo mkdir -p /root/.kube
+    sudo cp -i /etc/kubernetes/admin.conf /root/.kube/config
+    sudo chown $(id -u):$(id -g) /root/.kube/config
+    sudo mkdir -p /home/ubuntu/.kube
+    sudo cp -i /etc/kubernetes/admin.conf /home/ubuntu/.kube/config
+    sudo chown ubuntu:ubuntu /home/ubuntu/.kube/config
+
+    echo "Extra kubernetes apiserver started successful."
+  else
+    echo "kubeadm init failed for extra kubernetes apiserver. Error: $?"
+    exit $?
+  fi  
+}
+
 function setup-kubernetes-worker() {
   setup-kubelet
 
@@ -831,8 +899,13 @@ if [[ -z "${is_push}" ]]; then
   unpack-kubernetes
   if [[ "${KUBERNETES_MASTER}" == "true" ]]; then
     if [[ "${KUBEMARK_MASTER}" == "false" ]]; then
-      # Start master
-      setup-kubernetes-master
+      if [[ "${IS_KUBE_APISERVER_EXTRA}" == "true" ]]; then
+        # Start extra apiserver
+        setup-kubernetes-apiserver-extra
+      else
+        # Start master
+        setup-kubernetes-master
+      fi
     else
       echo "Skipping kubeadm master setup for kubemark master."
     fi

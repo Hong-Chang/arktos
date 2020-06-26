@@ -75,6 +75,9 @@ if [[ $PRESET_INSTANCES_ENABLED == $TRUE ]]; then
   else
     NUM_NODES=1
   fi
+  if [[ -n ${PRESET_KUBE_APISERVER_EXTRA1_IP:-} ]]; then
+    KUBE_APISERVER_EXTRA1_IP=$PRESET_KUBE_APISERVER_EXTRA1_IP
+  fi
   if [[ -z ${JENKINS_HOME:-} ]]; then    
     ACCESS_FILE=${HOME}/ArktosE2E
   else
@@ -742,6 +745,9 @@ function upload-server-tars() {
       if [[ -n ${KUBE_MINION2_IP:-} ]]; then
         scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} ${SERVER_BINARY_TAR} ${BOOTSTRAP_SCRIPT} ${SSH_USER}@${KUBE_MINION2_IP}:/tmp
       fi
+      if [[ -n ${KUBE_APISERVER_EXTRA1_IP:-} ]]; then
+        scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} ${SERVER_BINARY_TAR} ${BOOTSTRAP_SCRIPT} ${SSH_USER}@${KUBE_APISERVER_EXTRA1_IP}:/tmp
+      fi
     fi
   fi
 
@@ -1151,6 +1157,9 @@ function kube-up {
     # Wait for the master to be ready
     wait-master
 
+    # Create extra API Server if has
+    start-extra-apiserver
+
     # Start cluster networking
     start-cluster-networking
   fi
@@ -1355,6 +1364,109 @@ function start-master() {
   fi
 }
 
+# Starts extra API Server
+function start-extra-apiserver() {
+  if [[ -z "${KUBE_APISERVER_EXTRA1_IP:-}" ]]; then
+    return
+  fi
+
+  (
+    # We pipe this to the ami as a startup script in the user-data field.  Requires a compatible ami
+    echo "#! /bin/bash"
+    echo "mkdir -p /var/cache/kubernetes-install"
+    echo "cd /var/cache/kubernetes-install"
+
+    echo "cat > kube_env.yaml << __EOF_MASTER_KUBE_ENV_YAML"
+    cat ${KUBE_TEMP}/master-kube-env.yaml
+    echo "AUTO_UPGRADE: 'true'"
+    # TODO: get rid of these exceptions / harmonize with common or GCE
+    echo "DOCKER_STORAGE: $(yaml-quote ${DOCKER_STORAGE:-})"
+    echo "API_SERVERS: $(yaml-quote ${KUBE_APISERVER_EXTRA1_IP:-})"
+    echo "KUBE_APISERVER_EXTRA1_IP: $(yaml-quote ${KUBE_APISERVER_EXTRA1_IP:-})"
+    echo "API_BIND_PORT: $(yaml-quote ${API_BIND_PORT:-6443})"
+    echo "MASTER_EXTERNAL_IP: $(yaml-quote ${KUBE_APISERVER_EXTRA1_IP:-})"
+    echo "POD_NETWORK_CIDR: $(yaml-quote ${POD_NETWORK_CIDR:-})"
+    echo "__EOF_MASTER_KUBE_ENV_YAML"
+    echo ""
+    if [[ $PRESET_INSTANCES_ENABLED != $TRUE ]]; then
+      echo "wget -O bootstrap ${BOOTSTRAP_SCRIPT_URL}"
+    else
+      echo "cp ${BOOTSTRAP_SCRIPT_URL} bootstrap"
+    fi
+    echo "chmod +x bootstrap"
+    echo "mkdir -p /etc/kubernetes"
+    echo "mv kube_env.yaml /etc/kubernetes"
+    echo "mv bootstrap /etc/kubernetes/"
+    if [[ $PRESET_INSTANCES_ENABLED != $TRUE ]]; then
+      echo "cat > /etc/rc.local << EOF_RC_LOCAL"
+      echo "#!/bin/sh -e"
+      # We want to be sure that we don't pass an argument to bootstrap
+      echo "/etc/kubernetes/bootstrap"
+      echo "exit 0"
+      echo "EOF_RC_LOCAL"
+      echo "/etc/kubernetes/bootstrap > /tmp/bootstrap.log"
+    fi
+  ) > "${KUBE_TEMP}/master-user-data"
+
+  if [[ $IS_PRESET_INSTANCES_DRY_RUN == $FALSE ]]; then
+    send-files-for-extra-apiserver
+
+    scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} ${KUBE_TEMP}/master-user-data ${SSH_USER}@${KUBE_APISERVER_EXTRA1_IP}:/tmp
+    execute-ssh ${KUBE_APISERVER_EXTRA1_IP} "chmod 755 /tmp/master-user-data && sudo /tmp/master-user-data"
+    execute-ssh ${KUBE_APISERVER_EXTRA1_IP} "export IS_KUBE_APISERVER_EXTRA=true && sudo -E /etc/kubernetes/bootstrap &>/tmp/bootstrap.log & disown"
+  fi
+  echo "Extra API Server is running: public_ip= $KUBE_APISERVER_EXTRA1_IP"   
+
+  #scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} /tmp/apiserver1/ca.crt ${SSH_USER}@${KUBE_APISERVER_EXTRA1_IP}:/tmp/ca.crt
+  #scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} /tmp/apiserver1/kubelet_config.yaml ${SSH_USER}@${KUBE_APISERVER_EXTRA1_IP}:/tmp/kubelet_config.yaml
+  
+  #execute-ssh ${KUBE_APISERVER_EXTRA1_IP} "sudo mkdir -p /etc/kubernetes/pki && sudo cp /tmp/ca.crt /etc/kubernetes/pki/ca.crt"
+  #scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} /tmp/kubelet_config.yaml ${SSH_USER}@${KUBE_APISERVER_EXTRA1_IP}:/tmp/kubelet_config.yaml
+  #execute-ssh ${KUBE_APISERVER_EXTRA1_IP} "sudo mkdir -p /var/lib/kubelet && sudo cp /tmp/kubelet_config.yaml /var/lib/kubelet/config.yaml"
+  
+}
+
+function send-files-for-extra-apiserver() {
+  execute-ssh ${KUBE_APISERVER_EXTRA1_IP} "mkdir -p /tmp/apiserver1; sudo mkdir -p /etc/srv/kubernetes/apiserver1; sudo mkdir -p /etc/kubernetes/pki/apiserver1; sudo mkdir -p /etc/kubernetes/pki/etcd/apiserver1"  
+  scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} /tmp/apiserver1/basic_auth.csv ${SSH_USER}@${KUBE_APISERVER_EXTRA1_IP}:/tmp/apiserver1/basic_auth.csv
+  execute-ssh ${KUBE_APISERVER_EXTRA1_IP} "sudo cp /tmp/apiserver1/basic_auth.csv /etc/srv/kubernetes/apiserver1/basic_auth.csv"
+  scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} /tmp/apiserver1/known_tokens.csv ${SSH_USER}@${KUBE_APISERVER_EXTRA1_IP}:/tmp/apiserver1/known_tokens.csv
+  execute-ssh ${KUBE_APISERVER_EXTRA1_IP} "sudo cp /tmp/apiserver1/known_tokens.csv /etc/srv/kubernetes/apiserver1/known_tokens.csv"
+  scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} /tmp/apiserver1/client--ca.crt ${SSH_USER}@${KUBE_APISERVER_EXTRA1_IP}:/tmp/apiserver1/client--ca.crt
+  execute-ssh ${KUBE_APISERVER_EXTRA1_IP} "sudo cp /tmp/apiserver1/client--ca.crt /etc/kubernetes/pki/apiserver1/ca.crt"
+  scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} /tmp/apiserver1/etcd--ca.crt ${SSH_USER}@${KUBE_APISERVER_EXTRA1_IP}:/tmp/apiserver1/etcd--ca.crt
+  execute-ssh ${KUBE_APISERVER_EXTRA1_IP} "sudo cp /tmp/apiserver1/etcd--ca.crt /etc/kubernetes/pki/etcd/apiserver1/ca.crt"
+  scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} /tmp/apiserver1/apiserver-etcd-client.crt ${SSH_USER}@${KUBE_APISERVER_EXTRA1_IP}:/tmp/apiserver1/apiserver-etcd-client.crt
+  execute-ssh ${KUBE_APISERVER_EXTRA1_IP} "sudo cp /tmp/apiserver1/apiserver-etcd-client.crt /etc/kubernetes/pki/apiserver1/apiserver-etcd-client.crt"
+  scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} /tmp/apiserver1/apiserver-etcd-client.key ${SSH_USER}@${KUBE_APISERVER_EXTRA1_IP}:/tmp/apiserver1/apiserver-etcd-client.key
+  execute-ssh ${KUBE_APISERVER_EXTRA1_IP} "sudo cp /tmp/apiserver1/apiserver-etcd-client.key /etc/kubernetes/pki/apiserver1/apiserver-etcd-client.key"
+  scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} /tmp/apiserver1/apiserver-kubelet-client.crt ${SSH_USER}@${KUBE_APISERVER_EXTRA1_IP}:/tmp/apiserver1/apiserver-kubelet-client.crt
+  execute-ssh ${KUBE_APISERVER_EXTRA1_IP} "sudo cp /tmp/apiserver1/apiserver-kubelet-client.crt /etc/kubernetes/pki/apiserver1/apiserver-kubelet-client.crt"
+  scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} /tmp/apiserver1/apiserver-kubelet-client.key ${SSH_USER}@${KUBE_APISERVER_EXTRA1_IP}:/tmp/apiserver1/apiserver-kubelet-client.key
+  execute-ssh ${KUBE_APISERVER_EXTRA1_IP} "sudo cp /tmp/apiserver1/apiserver-kubelet-client.key /etc/kubernetes/pki/apiserver1/apiserver-kubelet-client.key"
+  scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} /tmp/apiserver1/front-proxy-client.crt ${SSH_USER}@${KUBE_APISERVER_EXTRA1_IP}:/tmp/apiserver1/front-proxy-client.crt
+  execute-ssh ${KUBE_APISERVER_EXTRA1_IP} "sudo cp /tmp/apiserver1/front-proxy-client.crt /etc/kubernetes/pki/apiserver1/front-proxy-client.crt"
+  scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} /tmp/apiserver1/front-proxy-client.key ${SSH_USER}@${KUBE_APISERVER_EXTRA1_IP}:/tmp/apiserver1/front-proxy-client.key
+  execute-ssh ${KUBE_APISERVER_EXTRA1_IP} "sudo cp /tmp/apiserver1/front-proxy-client.key /etc/kubernetes/pki/apiserver1/front-proxy-client.key"
+  scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} /tmp/apiserver1/front-proxy-ca.crt ${SSH_USER}@${KUBE_APISERVER_EXTRA1_IP}:/tmp/apiserver1/front-proxy-ca.crt
+  execute-ssh ${KUBE_APISERVER_EXTRA1_IP} "sudo cp /tmp/apiserver1/front-proxy-ca.crt /etc/kubernetes/pki/apiserver1/front-proxy-ca.crt"
+  scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} /tmp/apiserver1/sa.pub ${SSH_USER}@${KUBE_APISERVER_EXTRA1_IP}:/tmp/apiserver1/sa.pub
+  execute-ssh ${KUBE_APISERVER_EXTRA1_IP} "sudo cp /tmp/apiserver1/sa.pub /etc/kubernetes/pki/apiserver1/sa.pub"
+  scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} /tmp/apiserver1/apiserver.crt ${SSH_USER}@${KUBE_APISERVER_EXTRA1_IP}:/tmp/apiserver1/apiserver.crt
+  execute-ssh ${KUBE_APISERVER_EXTRA1_IP} "sudo cp /tmp/apiserver1/apiserver.crt /etc/kubernetes/pki/apiserver1/apiserver.crt"
+  scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} /tmp/apiserver1/apiserver.key ${SSH_USER}@${KUBE_APISERVER_EXTRA1_IP}:/tmp/apiserver1/apiserver.key
+  execute-ssh ${KUBE_APISERVER_EXTRA1_IP} "sudo cp /tmp/apiserver1/apiserver.key /etc/kubernetes/pki/apiserver1/apiserver.key"
+  #scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} /tmp/apiserver1/jks-keystore ${SSH_USER}@${KUBE_APISERVER_EXTRA1_IP}:/tmp/apiserver1/jks-keystore
+
+  sed -i "s|/etc/srv/kubernetes|/etc/srv/kubernetes/apiserver1|g" /tmp/apiserver1/kube-apiserver.yaml
+  sed -i "s|/etc/kubernetes/pki|/etc/kubernetes/pki/apiserver1|g" /tmp/apiserver1/kube-apiserver.yaml
+  sed -i "s|https://127.0.0.1:2379|https://${KUBE_MASTER_IP}:2379|g" /tmp/apiserver1/kube-apiserver.yaml
+  scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} /tmp/apiserver1/kube-apiserver.yaml ${SSH_USER}@${KUBE_APISERVER_EXTRA1_IP}:/tmp/apiserver1/kube-apiserver.yaml
+  #execute-ssh ${KUBE_APISERVER_EXTRA1_IP} "sudo cp /tmp/apiserver1/kube-apiserver.yaml /etc/kubernetes/manifests/kube-apiserver.yaml"
+  
+  # execute-ssh ${KUBE_MASTER_IP} "cat /etc/ca-certificates/update.d/jks-keystore" > /tmp/apiserver1/
+}
+
 # Creates an ASG for the minion nodes
 function start-minions() {
   # Minions don't currently use runtime config, but call it anyway for sanity
@@ -1486,6 +1598,27 @@ function wait-minions {
   done
 }
 
+function bring-back-files() {
+  mkdir -p /tmp/apiserver1
+  #execute-ssh ${KUBE_MASTER_IP} "sudo cat /var/lib/kubelet/config.yaml" > /tmp/apiserver1/kubelet_config.yaml
+  execute-ssh ${KUBE_MASTER_IP} "sudo cat /etc/kubernetes/manifests/kube-apiserver.yaml" > /tmp/apiserver1/kube-apiserver.yaml
+  execute-ssh ${KUBE_MASTER_IP} "sudo cat /etc/srv/kubernetes/basic_auth.csv" > /tmp/apiserver1/basic_auth.csv
+  execute-ssh ${KUBE_MASTER_IP} "sudo cat /etc/srv/kubernetes/known_tokens.csv" > /tmp/apiserver1/known_tokens.csv
+  execute-ssh ${KUBE_MASTER_IP} "cat /etc/kubernetes/pki/ca.crt" > /tmp/apiserver1/client--ca.crt
+  execute-ssh ${KUBE_MASTER_IP} "cat /etc/kubernetes/pki/etcd/ca.crt" > /tmp/apiserver1/etcd--ca.crt
+  execute-ssh ${KUBE_MASTER_IP} "cat /etc/kubernetes/pki/apiserver-etcd-client.crt" > /tmp/apiserver1/apiserver-etcd-client.crt
+  execute-ssh ${KUBE_MASTER_IP} "sudo cat /etc/kubernetes/pki/apiserver-etcd-client.key" > /tmp/apiserver1/apiserver-etcd-client.key
+  execute-ssh ${KUBE_MASTER_IP} "cat /etc/kubernetes/pki/apiserver-kubelet-client.crt" > /tmp/apiserver1/apiserver-kubelet-client.crt
+  execute-ssh ${KUBE_MASTER_IP} "sudo cat /etc/kubernetes/pki/apiserver-kubelet-client.key" > /tmp/apiserver1/apiserver-kubelet-client.key
+  execute-ssh ${KUBE_MASTER_IP} "cat /etc/kubernetes/pki/front-proxy-client.crt" > /tmp/apiserver1/front-proxy-client.crt
+  execute-ssh ${KUBE_MASTER_IP} "sudo cat /etc/kubernetes/pki/front-proxy-client.key" > /tmp/apiserver1/front-proxy-client.key
+  execute-ssh ${KUBE_MASTER_IP} "cat /etc/kubernetes/pki/front-proxy-ca.crt" > /tmp/apiserver1/front-proxy-ca.crt
+  execute-ssh ${KUBE_MASTER_IP} "sudo cat /etc/kubernetes/pki/sa.pub" > /tmp/apiserver1/sa.pub
+  execute-ssh ${KUBE_MASTER_IP} "cat /etc/kubernetes/pki/apiserver.crt" > /tmp/apiserver1/apiserver.crt
+  execute-ssh ${KUBE_MASTER_IP} "sudo cat /etc/kubernetes/pki/apiserver.key" > /tmp/apiserver1/apiserver.key
+  execute-ssh ${KUBE_MASTER_IP} "cat /etc/ca-certificates/update.d/jks-keystore" > /tmp/apiserver1/jks-keystore
+}
+
 # Wait for the master to be started
 function wait-master() {
   if [[ $PRESET_INSTANCES_ENABLED != $TRUE ]]; then
@@ -1527,6 +1660,8 @@ function wait-master() {
       exit 1
     fi    
   done
+
+  bring-back-files
 
   echo "Kubernetes cluster created."
 }
@@ -1916,6 +2051,13 @@ function kube-down-for-preset-machines {
     execute-ssh ${KUBE_MINION2_IP} "chmod 755 /tmp/cleanup-script && sudo /tmp/cleanup-script && rm -rf /tmp/cleanup-script"
     reboot-remote-vm ${KUBE_MINION2_IP}
     execute-ssh ${KUBE_MINION2_IP} "sudo rm -rf /var/lib/kubelet"
+  fi
+
+  if [[ -n ${KUBE_APISERVER_EXTRA1_IP:-} ]]; then
+    scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} ${CLEANUP_SCRIPT} ${SSH_USER}@${KUBE_APISERVER_EXTRA1_IP}:/tmp
+    execute-ssh ${KUBE_APISERVER_EXTRA1_IP} "chmod 755 /tmp/cleanup-script && sudo /tmp/cleanup-script && rm -rf /tmp/cleanup-script"
+    reboot-remote-vm ${KUBE_APISERVER_EXTRA1_IP}
+    execute-ssh ${KUBE_APISERVER_EXTRA1_IP} "sudo rm -rf /var/lib/kubelet"
   fi
 }
 
