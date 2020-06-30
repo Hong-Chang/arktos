@@ -1381,10 +1381,10 @@ function start-extra-apiserver() {
     echo "AUTO_UPGRADE: 'true'"
     # TODO: get rid of these exceptions / harmonize with common or GCE
     echo "DOCKER_STORAGE: $(yaml-quote ${DOCKER_STORAGE:-})"
-    echo "API_SERVERS: $(yaml-quote ${KUBE_APISERVER_EXTRA1_IP:-})"
+    echo "API_SERVERS: $(yaml-quote ${KUBE_MASTER_IP:-})"
     echo "KUBE_APISERVER_EXTRA1_IP: $(yaml-quote ${KUBE_APISERVER_EXTRA1_IP:-})"
     echo "API_BIND_PORT: $(yaml-quote ${API_BIND_PORT:-6443})"
-    echo "MASTER_EXTERNAL_IP: $(yaml-quote ${KUBE_APISERVER_EXTRA1_IP:-})"
+    echo "MASTER_EXTERNAL_IP: $(yaml-quote ${KUBE_MASTER_IP:-})"
     echo "POD_NETWORK_CIDR: $(yaml-quote ${POD_NETWORK_CIDR:-})"
     echo "__EOF_MASTER_KUBE_ENV_YAML"
     echo ""
@@ -1457,6 +1457,9 @@ function send-files-for-extra-apiserver() {
   scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} /tmp/apiserver1/apiserver.key ${SSH_USER}@${KUBE_APISERVER_EXTRA1_IP}:/tmp/apiserver1/apiserver.key
   execute-ssh ${KUBE_APISERVER_EXTRA1_IP} "sudo cp /tmp/apiserver1/apiserver.key /etc/kubernetes/pki/apiserver1/apiserver.key"
   #scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} /tmp/apiserver1/jks-keystore ${SSH_USER}@${KUBE_APISERVER_EXTRA1_IP}:/tmp/apiserver1/jks-keystore
+
+  scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} /tmp/apiserver1/kubelet.tar.gz ${SSH_USER}@${KUBE_APISERVER_EXTRA1_IP}:/tmp/apiserver1/kubelet.tar.gz
+  execute-ssh ${KUBE_APISERVER_EXTRA1_IP} "sudo rm -rf /var/lib/kubelet && cd / && sudo tar -zxvf /tmp/apiserver1/kubelet.tar.gz"
 
   sed -i "s|/etc/srv/kubernetes|/etc/srv/kubernetes/apiserver1|g" /tmp/apiserver1/kube-apiserver.yaml
   sed -i "s|/etc/kubernetes/pki|/etc/kubernetes/pki/apiserver1|g" /tmp/apiserver1/kube-apiserver.yaml
@@ -1617,6 +1620,9 @@ function bring-back-files() {
   execute-ssh ${KUBE_MASTER_IP} "cat /etc/kubernetes/pki/apiserver.crt" > /tmp/apiserver1/apiserver.crt
   execute-ssh ${KUBE_MASTER_IP} "sudo cat /etc/kubernetes/pki/apiserver.key" > /tmp/apiserver1/apiserver.key
   execute-ssh ${KUBE_MASTER_IP} "cat /etc/ca-certificates/update.d/jks-keystore" > /tmp/apiserver1/jks-keystore
+
+  execute-ssh ${KUBE_MASTER_IP} "sudo tar -czf /tmp/kubelet.tar.gz /var/lib/kubelet"
+  scp -o 'StrictHostKeyChecking no' -i ${ACCESS_FILE} ${SSH_USER}@${KUBE_MASTER_IP}:/tmp/kubelet.tar.gz /tmp/apiserver1/kubelet.tar.gz
 }
 
 # Wait for the master to be started

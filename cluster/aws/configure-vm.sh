@@ -767,13 +767,14 @@ function setup-kubernetes-master() {
 }
 
 function setup-kubernetes-apiserver-extra() {  
-  setup-kubelet
+  export APISERVERS_EXTRA="`hostname`:$MASTER_EXTERNAL_IP"
+  echo $APISERVERS_EXTRA
+  export APISERVER_SERVICEGROUPID=2
+  export REUSE_CERTS=true
 
-  if [[ -z "$KUBERNETES_MASTER_NAME" ]]; then
-    KUBE_NODE_NAME=`hostname`
-  else
-    KUBE_NODE_NAME=$KUBERNETES_MASTER_NAME
-  fi
+  #setup-kubelet
+
+  KUBE_NODE_NAME=$APISERVERS_EXTRA
 
   echo "Setting up extra kubernetes apiserver: Version $KUBE_VER IP: $KUBE_APISERVER_EXTRA1_IP Master IP: $MASTER_EXTERNAL_IP"
 
@@ -794,19 +795,20 @@ function setup-kubernetes-apiserver-extra() {
   kubeadm init phase control-plane apiserver --apiserver-bind-port=$API_BIND_PORT --kubernetes-version=$KUBE_VER --apiserver-extra-args=$feature_gates
   #kubeadm init phase control-plane controller-manager --kubernetes-version=$KUBE_VER $pod_net_cidr --controller-manager-extra-args=$feature_gates
   #kubeadm init phase control-plane scheduler --kubernetes-version=$KUBE_VER --scheduler-extra-args=$feature_gates
-  kubeadm init phase etcd local
+  #kubeadm init phase etcd local
 
-  sed -i "/listen-client-urls=/ s/$/,http:\/\/127.0.0.1:2382/" /etc/kubernetes/manifests/etcd.yaml
+  #sed -i "/listen-client-urls=/ s/$/,http:\/\/127.0.0.1:2382/" /etc/kubernetes/manifests/etcd.yaml
   sed -i "/- kube-apiserver/a \ \ \ \ - --token-auth-file=\/etc\/srv\/kubernetes\/known_tokens.csv" /etc/kubernetes/manifests/kube-apiserver.yaml
   sed -i "/- kube-apiserver/a \ \ \ \ - --basic-auth-file=\/etc\/srv\/kubernetes\/basic_auth.csv" /etc/kubernetes/manifests/kube-apiserver.yaml
   sed -i "/volumeMounts:/a \ \ \ \ - mountPath: \/etc\/srv\/kubernetes\n      name: etc-srv-kubernetes\n      readOnly: true" /etc/kubernetes/manifests/kube-apiserver.yaml
   sed -i "/volumes:/a \ \ - hostPath:\n      path: \/etc\/srv\/kubernetes\n      type: DirectoryOrCreate\n    name: etc-srv-kubernetes" /etc/kubernetes/manifests/kube-apiserver.yaml
 
-  #cp /tmp/apiserver1/kube-apiserver.yaml /etc/kubernetes/manifests/kube-apiserver.yaml
+  cp /tmp/apiserver1/kube-apiserver.yaml /etc/kubernetes/manifests/kube-apiserver.yaml
 
   if [[ ! -z $feature_gates ]]; then
     sed -i "/KUBELET_CONFIG_ARGS=/a Environment=\"KUBELET_EXTRA_ARGS=--feature-gates=${FEATURE_GATES}\"" /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
     feature_gates="--$feature_gates"
+    echo feature_gates
   fi
   systemctl daemon-reload
 
@@ -815,7 +817,7 @@ function setup-kubernetes-apiserver-extra() {
   echo $MASTER_EXTERNAL_IP
   echo $skip_phases
   echo $pod_net_cidr
-  #exit 1
+  exit 1
   kubeadm init --node-name=$KUBE_NODE_NAME --apiserver-bind-port=$API_BIND_PORT --apiserver-cert-extra-sans=$MASTER_EXTERNAL_IP \
                --ignore-preflight-errors=all $skip_phases $pod_net_cidr &> /etc/kubernetes/kubeadm-init-log
   if [ $? -eq 0 ]; then
