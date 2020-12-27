@@ -81,6 +81,7 @@ func NewMizarStarterController(informer coreinformers.ConfigMapInformer, kubeCli
 
 	c.handler = c.handle
 
+	c.startHandler(c.controllerContext, "172.31.29.176")
 	return c
 }
 

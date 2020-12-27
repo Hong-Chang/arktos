@@ -177,13 +177,14 @@ func (c *MizarPodController) handle(keyWithEventType KeyWithEventType) error {
 	if err != nil {
 		return err
 	}
-
+	klog.Infof("hochan pod handle")
 	obj, err := c.lister.PodsWithMultiTenancy(namespace, tenant).Get(name)
 	if err != nil {
+		klog.Infof("hochan error %s", err)
 		return err
 	}
 
-	klog.V(4).Infof("Handling %v %s/%s/%s hashkey %v for event %v", controllerForMizarPod, tenant, namespace, obj.Name, obj.HashKey, eventType)
+	klog.Infof("hochan Handling %v %s/%s/%s hashkey %v for event %v Status %s", controllerForMizarPod, tenant, namespace, obj.Name, obj.HashKey, eventType, obj.Status)
 
 	switch eventType {
 	case EventType_Create:

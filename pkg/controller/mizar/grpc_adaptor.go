@@ -46,182 +46,218 @@ type GrpcAdaptor struct {
 
 // CreateArktosNetwork is to invoke grpc func of CreateArktosNetwork
 func (grpcAdaptor *GrpcAdaptor) CreateArktosNetwork(grpcHost string, msg *BuiltinsArktosMessage) *ReturnCode {
-	client, ctx, conn, cancel, err := getGrpcClient(grpcHost)
-	if err != nil {
-		return getReturnCodeFromError(&err)
+	return &ReturnCode{
+		Code: CodeType_OK,
 	}
-	defer conn.Close()
-	defer cancel()
-	returnCode, err := client.CreateArktosNetwork(ctx, msg)
-	if err != nil {
-		return getReturnCodeFromError(&err)
-	}
-	return returnCode
+	// client, ctx, conn, cancel, err := getGrpcClient(grpcHost)
+	// if err != nil {
+	// 	return getReturnCodeFromError(&err)
+	// }
+	// defer conn.Close()
+	// defer cancel()
+	// returnCode, err := client.CreateArktosNetwork(ctx, msg)
+	// if err != nil {
+	// 	return getReturnCodeFromError(&err)
+	// }
+	// return returnCode
 }
 
 // CreateService is to invoke grpc func of CreateService
 func (grpcAdaptor *GrpcAdaptor) CreateService(grpcHost string, msg *BuiltinsServiceMessage) *ReturnCode {
-	client, ctx, conn, cancel, err := getGrpcClient(grpcHost)
-	if err != nil {
-		return getReturnCodeFromError(&err)
+	return &ReturnCode{
+		Code: CodeType_OK,
 	}
-	defer conn.Close()
-	defer cancel()
-	returnCode, err := client.CreateService(ctx, msg)
-	if err != nil {
-		return getReturnCodeFromError(&err)
-	}
-	return returnCode
+	// client, ctx, conn, cancel, err := getGrpcClient(grpcHost)
+	// if err != nil {
+	// 	return getReturnCodeFromError(&err)
+	// }
+	// defer conn.Close()
+	// defer cancel()
+	// returnCode, err := client.CreateService(ctx, msg)
+	// if err != nil {
+	// 	return getReturnCodeFromError(&err)
+	// }
+	// return returnCode
 }
 
 // UpdateService is to invoke grpc func of UpdateService
 func (grpcAdaptor *GrpcAdaptor) UpdateService(grpcHost string, msg *BuiltinsServiceMessage) *ReturnCode {
-	client, ctx, conn, cancel, err := getGrpcClient(grpcHost)
-	if err != nil {
-		return getReturnCodeFromError(&err)
+	return &ReturnCode{
+		Code: CodeType_OK,
 	}
-	defer conn.Close()
-	defer cancel()
-	returnCode, err := client.UpdateService(ctx, msg)
-	if err != nil {
-		return getReturnCodeFromError(&err)
-	}
-	return returnCode
+	// client, ctx, conn, cancel, err := getGrpcClient(grpcHost)
+	// if err != nil {
+	// 	return getReturnCodeFromError(&err)
+	// }
+	// defer conn.Close()
+	// defer cancel()
+	// returnCode, err := client.UpdateService(ctx, msg)
+	// if err != nil {
+	// 	return getReturnCodeFromError(&err)
+	// }
+	// return returnCode
 }
 
 // DeleteService is to invoke grpc func of DeleteService
 func (grpcAdaptor *GrpcAdaptor) DeleteService(grpcHost string, msg *BuiltinsServiceMessage) *ReturnCode {
-	client, ctx, conn, cancel, err := getGrpcClient(grpcHost)
-	if err != nil {
-		return getReturnCodeFromError(&err)
+	return &ReturnCode{
+		Code: CodeType_OK,
 	}
-	defer conn.Close()
-	defer cancel()
-	returnCode, err := client.DeleteService(ctx, msg)
-	if err != nil {
-		return getReturnCodeFromError(&err)
-	}
-	return returnCode
+	// client, ctx, conn, cancel, err := getGrpcClient(grpcHost)
+	// if err != nil {
+	// 	return getReturnCodeFromError(&err)
+	// }
+	// defer conn.Close()
+	// defer cancel()
+	// returnCode, err := client.DeleteService(ctx, msg)
+	// if err != nil {
+	// 	return getReturnCodeFromError(&err)
+	// }
+	// return returnCode
 }
 
 // UpdateServiceEndpoint is to invoke grpc func of UpdateServiceEndpoint
 func (grpcAdaptor *GrpcAdaptor) UpdateServiceEndpoint(grpcHost string, msg *BuiltinsServiceEndpointMessage) *ReturnCode {
-	client, ctx, conn, cancel, err := getGrpcClient(grpcHost)
-	if err != nil {
-		return getReturnCodeFromError(&err)
+	return &ReturnCode{
+		Code: CodeType_OK,
 	}
-	defer conn.Close()
-	defer cancel()
-	returnCode, err := client.UpdateServiceEndpoint(ctx, msg)
-	if err != nil {
-		return getReturnCodeFromError(&err)
-	}
-	return returnCode
+	// client, ctx, conn, cancel, err := getGrpcClient(grpcHost)
+	// if err != nil {
+	// 	return getReturnCodeFromError(&err)
+	// }
+	// defer conn.Close()
+	// defer cancel()
+	// returnCode, err := client.UpdateServiceEndpoint(ctx, msg)
+	// if err != nil {
+	// 	return getReturnCodeFromError(&err)
+	// }
+	// return returnCode
 }
 
 // CreateServiceEndpoint is to invoke grpc func of CreateServiceEndpoint
 func (grpcAdaptor *GrpcAdaptor) CreateServiceEndpoint(grpcHost string, msg *BuiltinsServiceEndpointMessage) *ReturnCode {
-	client, ctx, conn, cancel, err := getGrpcClient(grpcHost)
-	if err != nil {
-		return getReturnCodeFromError(&err)
+	return &ReturnCode{
+		Code: CodeType_OK,
 	}
-	defer conn.Close()
-	defer cancel()
-	returnCode, err := client.CreateServiceEndpoint(ctx, msg)
-	if err != nil {
-		return getReturnCodeFromError(&err)
-	}
-	return returnCode
+	// client, ctx, conn, cancel, err := getGrpcClient(grpcHost)
+	// if err != nil {
+	// 	return getReturnCodeFromError(&err)
+	// }
+	// defer conn.Close()
+	// defer cancel()
+	// returnCode, err := client.CreateServiceEndpoint(ctx, msg)
+	// if err != nil {
+	// 	return getReturnCodeFromError(&err)
+	// }
+	// return returnCode
 }
 
 // UpdatePod is to invoke grpc func of UpdatePod
 func (grpcAdaptor *GrpcAdaptor) UpdatePod(grpcHost string, pod *v1.Pod) *ReturnCode {
-	client, ctx, conn, cancel, err := getGrpcClient(grpcHost)
-	if err != nil {
-		return getReturnCodeFromError(&err)
+	return &ReturnCode{
+		Code: CodeType_OK,
 	}
-	defer conn.Close()
-	defer cancel()
-	returnCode, err := client.UpdatePod(ctx, ConvertToPodContract(pod))
-	if err != nil {
-		return getReturnCodeFromError(&err)
-	}
-	return returnCode
+	// client, ctx, conn, cancel, err := getGrpcClient(grpcHost)
+	// if err != nil {
+	// 	return getReturnCodeFromError(&err)
+	// }
+	// defer conn.Close()
+	// defer cancel()
+	// returnCode, err := client.UpdatePod(ctx, ConvertToPodContract(pod))
+	// if err != nil {
+	// 	return getReturnCodeFromError(&err)
+	// }
+	// return returnCode
 }
 
 // CreatePod is to invoke grpc func of CreatePod
 func (grpcAdaptor *GrpcAdaptor) CreatePod(grpcHost string, pod *v1.Pod) *ReturnCode {
-	client, ctx, conn, cancel, err := getGrpcClient(grpcHost)
-	if err != nil {
-		return getReturnCodeFromError(&err)
+	return &ReturnCode{
+		Code: CodeType_OK,
 	}
-	defer conn.Close()
-	defer cancel()
-	returnCode, err := client.CreatePod(ctx, ConvertToPodContract(pod))
-	if err != nil {
-		return getReturnCodeFromError(&err)
-	}
-	return returnCode
+	// client, ctx, conn, cancel, err := getGrpcClient(grpcHost)
+	// if err != nil {
+	// 	return getReturnCodeFromError(&err)
+	// }
+	// defer conn.Close()
+	// defer cancel()
+	// returnCode, err := client.CreatePod(ctx, ConvertToPodContract(pod))
+	// if err != nil {
+	// 	return getReturnCodeFromError(&err)
+	// }
+	// return returnCode
 }
 
 // DeletePod is to invoke grpc func of DeletePod
 func (grpcAdaptor *GrpcAdaptor) DeletePod(grpcHost string, pod *v1.Pod) *ReturnCode {
-	client, ctx, conn, cancel, err := getGrpcClient(grpcHost)
-	if err != nil {
-		return getReturnCodeFromError(&err)
+	return &ReturnCode{
+		Code: CodeType_OK,
 	}
-	defer conn.Close()
-	defer cancel()
-	returnCode, err := client.DeletePod(ctx, ConvertToPodContract(pod))
-	if err != nil {
-		return getReturnCodeFromError(&err)
-	}
-	return returnCode
+	// client, ctx, conn, cancel, err := getGrpcClient(grpcHost)
+	// if err != nil {
+	// 	return getReturnCodeFromError(&err)
+	// }
+	// defer conn.Close()
+	// defer cancel()
+	// returnCode, err := client.DeletePod(ctx, ConvertToPodContract(pod))
+	// if err != nil {
+	// 	return getReturnCodeFromError(&err)
+	// }
+	// return returnCode
 }
 
 // CreateNode is to invoke grpc func of CreateNode
 func (grpcAdaptor *GrpcAdaptor) CreateNode(grpcHost string, node *v1.Node) *ReturnCode {
-	client, ctx, conn, cancel, err := getGrpcClient(grpcHost)
-	if err != nil {
-		return getReturnCodeFromError(&err)
+	return &ReturnCode{
+		Code: CodeType_OK,
 	}
-	defer conn.Close()
-	defer cancel()
-	returnCode, err := client.CreateNode(ctx, ConvertToNodeContract(node))
-	if err != nil {
-		return getReturnCodeFromError(&err)
-	}
-	return returnCode
+	// client, ctx, conn, cancel, err := getGrpcClient(grpcHost)
+	// if err != nil {
+	// 	return getReturnCodeFromError(&err)
+	// }
+	// defer conn.Close()
+	// defer cancel()
+	// returnCode, err := client.CreateNode(ctx, ConvertToNodeContract(node))
+	// if err != nil {
+	// 	return getReturnCodeFromError(&err)
+	// }
+	// return returnCode
 }
 
 // UpdateNode is to invoke grpc func of UpdateNode
 func (grpcAdaptor *GrpcAdaptor) UpdateNode(grpcHost string, node *v1.Node) *ReturnCode {
-	client, ctx, conn, cancel, err := getGrpcClient(grpcHost)
-	if err != nil {
-		return getReturnCodeFromError(&err)
+	return &ReturnCode{
+		Code: CodeType_OK,
 	}
-	defer conn.Close()
-	defer cancel()
-	returnCode, err := client.UpdateNode(ctx, ConvertToNodeContract(node))
-	if err != nil {
-		return getReturnCodeFromError(&err)
-	}
-	return returnCode
+	// client, ctx, conn, cancel, err := getGrpcClient(grpcHost)
+	// if err != nil {
+	// 	return getReturnCodeFromError(&err)
+	// }
+	// defer conn.Close()
+	// defer cancel()
+	// returnCode, err := client.UpdateNode(ctx, ConvertToNodeContract(node))
+	// if err != nil {
+	// 	return getReturnCodeFromError(&err)
+	// }
+	// return returnCode
 }
 
 // DeleteNode is to invoke grpc func of DeleteNode
 func (grpcAdaptor *GrpcAdaptor) DeleteNode(grpcHost string, node *v1.Node) *ReturnCode {
-	client, ctx, conn, cancel, err := getGrpcClient(grpcHost)
-	if err != nil {
-		return getReturnCodeFromError(&err)
+	return &ReturnCode{
+		Code: CodeType_OK,
 	}
-	defer conn.Close()
-	defer cancel()
-	returnCode, err := client.DeleteNode(ctx, ConvertToNodeContract(node))
-	if err != nil {
-		return getReturnCodeFromError(&err)
-	}
-	return returnCode
+	// client, ctx, conn, cancel, err := getGrpcClient(grpcHost)
+	// if err != nil {
+	// 	return getReturnCodeFromError(&err)
+	// }
+	// defer conn.Close()
+	// defer cancel()
+	// returnCode, err := client.DeleteNode(ctx, ConvertToNodeContract(node))
+	// if err != nil {
+	// 	return getReturnCodeFromError(&err)
+	// }
+	// return returnCode
 }
 
 func getReturnCodeFromError(err *error) *ReturnCode {
